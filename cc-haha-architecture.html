@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CC (Claude Code) 对编程的启发 — 架构流程图讲解</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --surface2: #24243a;
+    --border: #2e2e48;
+    --accent: #d4a5ff;
+    --accent2: #7c5cbf;
+    --green: #5cc9a7;
+    --blue: #6eb8ff;
+    --orange: #ffb347;
+    --pink: #ff7eb3;
+    --text: #e8e8f0;
+    --text2: #9898b8;
+    --glow: rgba(212,165,255,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Hero */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    background:
+      radial-gradient(ellipse 600px 400px at 50% 40%, rgba(124,92,191,0.12), transparent),
+      radial-gradient(ellipse 400px 300px at 20% 60%, rgba(92,201,167,0.06), transparent);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30Z' fill='none' stroke='%232e2e48' stroke-width='0.5'/%3E%3C/svg%3E") repeat;
+    opacity: 0.3;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 0.4rem 1.2rem;
+    border: 1px solid var(--accent2);
+    border-radius: 100px;
+    font-size: 0.85rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 1.5rem;
+    backdrop-filter: blur(8px);
+    background: rgba(124,92,191,0.1);
+  }
+  .hero h1 {
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--green) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+    position: relative;
+  }
+  .hero p {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    color: var(--text2);
+    max-width: 680px;
+    margin-bottom: 2.5rem;
+  }
+  .scroll-indicator {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text2);
+    font-size: 0.8rem;
+    animation: bounce 2s infinite;
+  }
+  @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
+
+  /* Section */
+  section { padding: 4rem 1.5rem; max-width: 1200px; margin: 0 auto; }
+  .section-title {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--text2);
+    margin-bottom: 3rem;
+    font-size: 1.05rem;
+  }
+
+  /* ====== FLOWCHART (SVG) ====== */
+  .flowchart-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem 1rem 1.5rem;
+    margin: 2rem auto;
+    max-width: 1100px;
+    overflow-x: auto;
+  }
+  .flowchart-wrapper svg {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1000px;
+    height: auto;
+  }
+  .flow-note {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text2);
+    margin-top: 1rem;
+  }
+
+  /* ====== INSPIRATION CARDS ====== */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.8rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .card:hover {
+    border-color: var(--accent2);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(124,92,191,0.15);
+  }
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+  .card p {
+    color: var(--text2);
+    font-size: 0.92rem;
+    margin-bottom: 0.8rem;
+  }
+  .card .inspire {
+    font-size: 0.85rem;
+    color: var(--green);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    background: rgba(92,201,167,0.08);
+    display: inline-block;
+  }
+
+  /* color per card */
+  .c-purple .card-icon { background: rgba(124,92,191,0.15); color: var(--accent); }
+  .c-green .card-icon  { background: rgba(92,201,167,0.12); color: var(--green); }
+  .c-blue .card-icon   { background: rgba(110,184,255,0.12); color: var(--blue); }
+  .c-orange .card-icon { background: rgba(255,179,71,0.12); color: var(--orange); }
+  .c-pink .card-icon   { background: rgba(255,126,179,0.12); color: var(--pink); }
+
+  /* ====== TIMELINE ====== */
+  .timeline { position: relative; padding-left: 2.5rem; margin-top: 2.5rem; }
+  .timeline::before {
+    content: '';
+    position: absolute; left: 8px; top: 0; bottom: 0;
+    width: 2px; background: linear-gradient(to bottom, var(--accent2), var(--green), var(--blue));
+  }
+  .tl-item { position: relative; margin-bottom: 2.2rem; }
+  .tl-item::before {
+    content: '';
+    position: absolute; left: -2.5rem; top: 6px;
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--accent2);
+    background: var(--bg);
+  }
+  .tl-item:nth-child(2)::before { border-color: var(--green); }
+  .tl-item:nth-child(3)::before { border-color: var(--blue); }
+  .tl-item:nth-child(4)::before { border-color: var(--orange); }
+  .tl-item:nth-child(5)::before { border-color: var(--pink); }
+  .tl-item h4 { font-size: 1.05rem; margin-bottom: 0.3rem; }
+  .tl-item p { color: var(--text2); font-size: 0.9rem; }
+
+  /* ====== TAB SYSTEM ====== */
+  .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-bottom: 2rem; }
+  .tab-btn {
+    padding: 0.6rem 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text2);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .tab-btn.active {
+    background: rgba(124,92,191,0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ====== CODE BLOCK ====== */
+  .code-block {
+    background: #0a0a12;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    color: #c9d1d9;
+    tab-size: 2;
+    margin: 1rem 0;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .fn { color: #d2a8ff; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .cm { color: #484f58; font-style: italic; }
+  .code-block .num { color: #79c0ff; }
+
+  /* ====== COMPARISON TABLE ====== */
+  .cmp-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+  }
+  .cmp-table th {
+    background: var(--surface2);
+    padding: 0.8rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent2);
+  }
+  .cmp-table th:first-child { border-radius: 10px 0 0 0; }
+  .cmp-table th:last-child { border-radius: 0 10px 0 0; }
+  .cmp-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .cmp-table tr:hover td { background: rgba(124,92,191,0.04); }
+
+  /* ====== FOOTER ====== */
+  footer {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 0.85rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    section { padding: 2rem 1rem; }
+    .insights-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 2rem; }
+    .flowchart-wrapper { padding: 1rem 0.5rem; }
+  }
+
+  /* Animated dots for SVG */
+  @keyframes flowPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+  .flow-dot { animation: flowPulse 2s infinite; }
+  .flow-dot:nth-child(2) { animation-delay: 0.3s; }
+  .flow-dot:nth-child(3) { animation-delay: 0.6s; }
+
+  /* Glow keyline */
+  .glow-line {
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--accent2), var(--green), transparent);
+    width: 80px;
+    margin: 0.5rem auto 1.5rem;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== HERO ====== -->
+<div class="hero">
+  <span class="hero-badge">✦ Claude Code Haha</span>
+  <h1>CC 对编程的启发</h1>
+  <p>从 Claude Code (cc-haha) 的架构源码中，读懂下一代 AI 原生编程范式 —— 不仅是一个工具，更是一套全新的编程思维模型</p>
+  <div class="scroll-indicator">
+    <span>向下探索</span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 13l5 5 5-5M7 6l5 5 5-5"/></svg>
+  </div>
+</div>
+
+<!-- ====== SECTION 1: ARCHITECTURE FLOWCHART ====== -->
+<section>
+  <h2 class="section-title">🧠 CC 整体架构流程图</h2>
+  <p class="section-sub">Claude Code 的完整 Agent 循环与系统架构</p>
+
+  <div class="flowchart-wrapper">
+    <svg viewBox="0 0 960 680" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7c5cbf"/><stop offset="100%" stop-color="#d4a5ff"/></linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5cc9a7"/><stop offset="100%" stop-color="#6eb8ff"/></linearGradient>
+        <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffb347"/><stop offset="100%" stop-color="#ff7eb3"/></linearGradient>
+        <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#24243a"/><stop offset="100%" stop-color="#2e2e48"/></linearGradient>
+        <filter id="shadow"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.3"/></filter>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#7c5cbf"/></marker>
+        <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#5cc9a7"/></marker>
+      </defs>
+
+      <!-- Background -->
+      <rect x="0" y="0" width="960" height="680" fill="#1a1a24" rx="12"/>
+
+      <!-- ===== TITLE ===== -->
+      <text x="480" y="36" text-anchor="middle" fill="#d4a5ff" font-size="15" font-weight="700" letter-spacing="2">CLAUDE CODE AGENT 架构</text>
+
+      <!-- ===== LEVEL 1: ENTRY ===== -->
+      <rect x="340" y="56" width="280" height="44" rx="22" fill="url(#g1)" filter="url(#shadow)"/>
+      <text x="480" y="84" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">👤 用户输入 / 会话入口</text>
+
+      <line x1="480" y1="100" x2="480" y2="130" stroke="#7c5cbf" stroke-width="2" marker-end="url(#arrow)"/>
+
+      <!-- ===== LEVEL 2: QUERY ENGINE ===== -->
+      <rect x="290" y="134" width="380" height="50" rx="12" fill="#24243a" stroke="#7c5cbf" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="480" y="156" text-anchor="middle" fill="#d4a5ff" font-size="13" font-weight="600">Async Generator 状态机 (query.ts)</text>
+      <text x="480" y="174" text-anchor="middle" fill="#9898b8" font-size="11">核心循环 — while(true) 五阶段驱动</text>
+
+      <!-- Phase boxes row -->
+      <line x1="480" y1="184" x2="480" y2="200" stroke="#7c5cbf" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <!-- 5 Phases -->
+      <rect x="50" y="205" width="160" height="48" rx="10" fill="#1e1e30" stroke="#9898b8" stroke-width="1"/>
+      <text x="130" y="221" text-anchor="middle" fill="#9898b8" font-size="10" font-weight="600">阶段 1</text>
+      <text x="130" y="239" text-anchor="middle" fill="#e8e8f0" font-size="11">消息准备 &amp; 智能压缩</text>
+
+      <rect x="230" y="205" width="160" height="48" rx="10" fill="#1e1e30" stroke="#9898b8" stroke-width="1"/>
+      <text x="310" y="221" text-anchor="middle" fill="#9898b8" font-size="10" font-weight="600">阶段 2</text>
+      <text x="310" y="239" text-anchor="middle" fill="#e8e8f0" font-size="11">流式 API 调用</text>
+
+      <rect x="410" y="205" width="160" height="48" rx="10" fill="#1e1e30" stroke="#9898b8" stroke-width="1"/>
+      <text x="490" y="221" text-anchor="middle" fill="#9898b8" font-size="10" font-weight="600">阶段 3</text>
+      <text x="490" y="239" text-anchor="middle" fill="#e8e8f0" font-size="11">决策点 / Tool Choice</text>
+
+      <rect x="590" y="205" width="160" height="48" rx="10" fill="#1e1e30" stroke="#9898b8" stroke-width="1"/>
+      <text x="670" y="221" text-anchor="middle" fill="#9898b8" font-size="10" font-weight="600">阶段 4</text>
+      <text x="670" y="239" text-anchor="middle" fill="#e8e8f0" font-size="11">结果处理 &amp; 汇总</text>
+
+      <rect x="770" y="205" width="160" height="48" rx="10" fill="#1e1e30" stroke="#9898b8" stroke-width="1"/>
+      <text x="850" y="221" text-anchor="middle" fill="#9898b8" font-size="10" font-weight="600">阶段 5</text>
+      <text x="850" y="239" text-anchor="middle" fill="#e8e8f0" font-size="11">循环 / 终止判断</text>
+
+      <!-- Arrows between phases -->
+      <line x1="210" y1="229" x2="228" y2="229" stroke="#5cc9a7" stroke-width="1.5" marker-end="url(#arrowG)"/>
+      <line x1="390" y1="229" x2="408" y2="229" stroke="#5cc9a7" stroke-width="1.5" marker-end="url(#arrowG)"/>
+      <line x1="570" y1="229" x2="588" y2="229" stroke="#5cc9a7" stroke-width="1.5" marker-end="url(#arrowG)"/>
+      <line x1="750" y1="229" x2="768" y2="229" stroke="#5cc9a7" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+      <!-- Return arrow -->
+      <path d="M850,253 L850,280 Q850,300 830,300 L130,300 Q110,300 110,280 L110,253" fill="none" stroke="#5cc9a7" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowG)"/>
+      <text x="480" y="316" text-anchor="middle" fill="#5cc9a7" font-size="10">循环（直到完成或中止）</text>
+
+      <!-- ===== TOOL SYSTEM ===== -->
+      <line x1="480" y1="330" x2="480" y2="348" stroke="#7c5cbf" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="80" y="352" width="800" height="46" rx="12" fill="url(#g4)" stroke="#2e2e48" stroke-width="1"/>
+      <text x="480" y="372" text-anchor="middle" fill="#e8e8f0" font-size="13" font-weight="600">🛠 工具系统 (Tool System) — StreamingToolExecutor 并行执行</text>
+      <text x="480" y="389" text-anchor="middle" fill="#9898b8" font-size="10">工具在模型流式生成过程中就开始执行，而非等完整响应</text>
+
+      <!-- Tools row -->
+      <line x1="480" y1="398" x2="480" y2="414" stroke="#7c5cbf" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <rect x="40" y="418" width="128" height="36" rx="8" fill="#1e1e30" stroke="#6eb8ff" stroke-width="1"/>
+      <text x="104" y="441" text-anchor="middle" fill="#6eb8ff" font-size="11">Read / Grep</text>
+
+      <rect x="178" y="418" width="128" height="36" rx="8" fill="#1e1e30" stroke="#6eb8ff" stroke-width="1"/>
+      <text x="242" y="441" text-anchor="middle" fill="#6eb8ff" font-size="11">Edit / Write</text>
+
+      <rect x="316" y="418" width="128" height="36" rx="8" fill="#1e1e30" stroke="#5cc9a7" stroke-width="1"/>
+      <text x="380" y="441" text-anchor="middle" fill="#5cc9a7" font-size="11">Bash 执行</text>
+
+      <rect x="454" y="418" width="128" height="36" rx="8" fill="#1e1e30" stroke="#d4a5ff" stroke-width="1"/>
+      <text x="518" y="441" text-anchor="middle" fill="#d4a5ff" font-size="11">Agent / Skill</text>
+
+      <rect x="592" y="418" width="128" height="36" rx="8" fill="#1e1e30" stroke="#ffb347" stroke-width="1"/>
+      <text x="656" y="441" text-anchor="middle" fill="#ffb347" font-size="11">MCP 工具</text>
+
+      <rect x="730" y="418" width="190" height="36" rx="8" fill="#1e1e30" stroke="#ff7eb3" stroke-width="1"/>
+      <text x="825" y="441" text-anchor="middle" fill="#ff7eb3" font-size="11">Computer Use (24个)</text>
+
+      <!-- ===== MIDDLE LAYER: SUB-SYSTEMS ===== -->
+      <line x1="480" y1="454" x2="480" y2="470" stroke="#7c5cbf" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <rect x="40" y="474" width="210" height="50" rx="10" fill="#1e1e30" stroke="#d4a5ff" stroke-width="1"/>
+      <text x="145" y="494" text-anchor="middle" fill="#d4a5ff" font-size="11" font-weight="600">👥 多 Agent 系统</text>
+      <text x="145" y="512" text-anchor="middle" fill="#9898b8" font-size="10">6种专业子代理并行协作</text>
+
+      <rect x="265" y="474" width="210" height="50" rx="10" fill="#1e1e30" stroke="#5cc9a7" stroke-width="1"/>
+      <text x="370" y="494" text-anchor="middle" fill="#5cc9a7" font-size="11" font-weight="600">🧩 Skills 插件系统</text>
+      <text x="370" y="512" text-anchor="middle" fill="#9898b8" font-size="10">Markdown 定义自动化工作流</text>
+
+      <rect x="490" y="474" width="210" height="50" rx="10" fill="#1e1e30" stroke="#6eb8ff" stroke-width="1"/>
+      <text x="595" y="494" text-anchor="middle" fill="#6eb8ff" font-size="11" font-weight="600">🧠 记忆系统</text>
+      <text x="595" y="512" text-anchor="middle" fill="#9898b8" font-size="10">4种跨会话持久记忆</text>
+
+      <rect x="715" y="474" width="210" height="50" rx="10" fill="#1e1e30" stroke="#ffb347" stroke-width="1"/>
+      <text x="820" y="494" text-anchor="middle" fill="#ffb347" font-size="11" font-weight="600">🔐 权限 &amp; 安全</text>
+      <text x="820" y="512" text-anchor="middle" fill="#9898b8" font-size="10">分级权限 &amp; 监控系统</text>
+
+      <!-- ===== BOTTOM: INFRASTRUCTURE ===== -->
+      <line x1="480" y1="524" x2="480" y2="542" stroke="#7c5cbf" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <rect x="40" y="548" width="290" height="54" rx="10" fill="#0f0f13" stroke="#2e2e48" stroke-width="1"/>
+      <text x="185" y="568" text-anchor="middle" fill="#9898b8" font-size="11" font-weight="600">📡 通信层</text>
+      <text x="185" y="586" text-anchor="middle" fill="#6e6e8e" font-size="10">MCP 协议 · WebSocket · LSP · REST API</text>
+
+      <rect x="340" y="548" width="290" height="54" rx="10" fill="#0f0f13" stroke="#2e2e48" stroke-width="1"/>
+      <text x="485" y="568" text-anchor="middle" fill="#9898b8" font-size="11" font-weight="600">🖥 多界面支持</text>
+      <text x="485" y="586" text-anchor="middle" fill="#6e6e8e" font-size="10">CLI TUI · 桌面 Electron · H5 远程 · IM 接入</text>
+
+      <rect x="640" y="548" width="280" height="54" rx="10" fill="#0f0f13" stroke="#2e2e48" stroke-width="1"/>
+      <text x="780" y="568" text-anchor="middle" fill="#9898b8" font-size="11" font-weight="600">⚙ 底层运行时</text>
+      <text x="780" y="586" text-anchor="middle" fill="#6e6e8e" font-size="10">Bun 运行时 · Anthropic SDK · 模型适配</text>
+
+      <!-- CONNECTING DOTS (animated) -->
+      <circle cx="130" cy="264" r="3" fill="#d4a5ff" class="flow-dot"/>
+      <circle cx="310" cy="264" r="3" fill="#d4a5ff" class="flow-dot"/>
+      <circle cx="490" cy="264" r="3" fill="#d4a5ff" class="flow-dot"/>
+      <circle cx="670" cy="264" r="3" fill="#d4a5ff" class="flow-dot"/>
+
+      <!-- LEGEND -->
+      <rect x="40" y="620" width="12" height="12" rx="3" fill="#d4a5ff"/>
+      <text x="58" y="631" fill="#9898b8" font-size="10">Agent 循环</text>
+      <rect x="150" y="620" width="12" height="12" rx="3" fill="#5cc9a7"/>
+      <text x="168" y="631" fill="#9898b8" font-size="10">数据流</text>
+      <rect x="250" y="620" width="12" height="12" rx="3" fill="#6eb8ff"/>
+      <text x="268" y="631" fill="#9898b8" font-size="10">工具</text>
+      <rect x="340" y="620" width="12" height="12" rx="3" fill="#ffb347"/>
+      <text x="358" y="631" fill="#9898b8" font-size="10">扩展</text>
+      <rect x="440" y="620" width="12" height="12" rx="3" fill="#1e1e30" stroke="#2e2e48" stroke-width="1"/>
+      <text x="458" y="631" fill="#9898b8" font-size="10">基础设施</text>
+    </svg>
+    <div class="flow-note">⏺ 点击下方选项卡可查看各模块深度解析 · 架构基于 cc-haha 源码逆向</div>
+  </div>
+</section>
+
+<!-- ===== SECTION 2: KEY INSPIRATIONS ===== -->
+<section>
+  <h2 class="section-title">💡 CC 对编程的 8 大启发</h2>
+  <p class="section-sub">从 Claude Code 源码中提炼的编程思维革新</p>
+
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="tab1">① Agent 即程序</button>
+    <button class="tab-btn" data-tab="tab2">② 状态机循环</button>
+    <button class="tab-btn" data-tab="tab3">③ 工具即 API</button>
+    <button class="tab-btn" data-tab="tab4">④ 记忆即文件</button>
+    <button class="tab-btn" data-tab="tab5">⑤ 上下文压缩</button>
+    <button class="tab-btn" data-tab="tab6">⑥ 多 Agent 协作</button>
+    <button class="tab-btn" data-tab="tab7">⑦ 插件化思维</button>
+    <button class="tab-btn" data-tab="tab8">⑧ 安全内建于流程</button>
+  </div>
+
+  <!-- TAB 1 -->
+  <div class="tab-content active" id="tab1">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">① Agent 即程序 — "程序不再只有一条执行路径"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>传统编程是 <strong>确定性的</strong>：函数 A 调用 B，B 返回结果给 A。而 CC 提出了 <strong>Agent as Program</strong> 范式。</p>
+    <div class="cmp-table">
+      <table>
+        <tr><th></th><th>传统程序</th><th>Agent 程序</th></tr>
+        <tr><td>控制流</td><td>函数调用栈</td><td>Async Generator + 状态机</td></tr>
+        <tr><td>决策</td><td>if/else 逻辑</td><td>LLM 推理 → Tool Choice</td></tr>
+        <tr><td>输出</td><td>返回值</td><td>yield 流式 + 副效应（写文件、执行命令）</td></tr>
+        <tr><td>失败处理</td><td>try/catch</td><td>智能重试 + 上下文折叠恢复</td></tr>
+        <tr><td>扩展</td><td>导入库</td><td>工具注入 + Skills 热加载</td></tr>
+      </table>
+    </div>
+    <div class="code-block">
+<span class="cm">// 传统：函数调用</span>
+<span class="kw">function</span> process(data) {
+  <span class="kw">const</span> cleaned = clean(data);
+  <span class="kw">return</span> analyze(cleaned);
+}
+
+<span class="cm">// CC 风格：Agent 生成器</span>
+<span class="kw">async function*</span> <span class="fn">agentLoop</span>(params) {
+  <span class="kw">let</span> state = { messages: [], turnCount: 0 };
+  <span class="kw">while</span> (<span class="kw">true</span>) {
+    <span class="kw">const</span> response = <span class="kw">await</span> callModel(state.messages);
+    <span class="kw">for</span> (<span class="kw">const</span> toolUse <span class="kw">of</span> response.toolUses) {
+      <span class="kw">const</span> result = <span class="kw">await</span> executeTool(toolUse);
+      <span class="kw">yield</span> { toolUse, result };  <span class="cm">// 流式产出</span>
+      state.messages.push(result);
+    }
+    <span class="kw">if</span> (response.isDone) <span class="kw">break</span>;
+  }
+}
+    </div>
+    <p><strong>🎯 启发</strong>：未来的程序不应只是"输入→处理→输出"。它应该是一个<strong>持续运行的 Agent</strong>，能实时感知环境、自主决策、并行执行工具，并流式汇报进展。</p>
+  </div>
+
+  <!-- TAB 2 -->
+  <div class="tab-content" id="tab2">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">② 状态机循环 — "不要用递归，用状态"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>大多数 Agent 框架（LangChain 等）使用 <strong>ReAct 模式</strong>（思考→行动→观察→循环），本质上是递归调用。CC 的架构却完全不同：</p>
+    <div class="code-block">
+<span class="cm">// CC 核心循环（query.ts:307-1728）</span>
+<span class="kw">type</span> <span class="fn">State</span> = {
+  messages: Message[];
+  toolUseContext: ToolUseContext;
+  autoCompactTracking: AutoCompactTracking;
+  maxOutputTokensRecoveryCount: number;
+  hasAttemptedReactiveCompact: boolean;
+  turnCount: number;
+  transition: Continue | undefined;
+};
+
+<span class="kw">async function*</span> <span class="fn">query</span>(params: QueryParams): AsyncGenerator&lt;...&gt; {
+  <span class="kw">let</span> state: State = initialState(params);
+  <span class="kw">while</span> (<span class="kw">true</span>) {
+    <span class="cm">// 阶段 1: 消息准备 + 四层智能压缩</span>
+    prepareMessages(state);
+
+    <span class="cm">// 阶段 2: 流式 API 调用 + 即时工具执行</span>
+    <span class="kw">for</span> <span class="kw">await</span> (<span class="kw">const</span> chunk <span class="kw">of</span> callModel(state)) {
+      <span class="kw">if</span> (chunk.type === <span class="str">'tool_use'</span>) {
+        executeToolImmediately(chunk);  <span class="cm">// 边生成边执行</span>
+      }
+    }
+
+    <span class="cm">// 阶段 3: 决策点 — 继续还是终止</span>
+    <span class="kw">const</span> decision = await decideNext(state);
+    <span class="kw">if</span> (decision === <span class="str">'stop'</span>) <span class="kw">break</span>;
+
+    state.turnCount++;
+  }
+}
+    </div>
+    <p><strong>🎯 启发</strong>：用<strong>显式状态机 + while 循环</strong>替代隐式递归调用。这让整个 Agent 的行为变得<strong>可中断、可恢复、可审计</strong>。编程时遇到复杂流程，优先考虑状态机而非层层嵌套回调。</p>
+  </div>
+
+  <!-- TAB 3 -->
+  <div class="tab-content" id="tab3">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">③ 工具即 API — "每个工具都是 Agent 的一个 API 端点"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>CC 把每个功能都抽象为 <strong>Tool</strong>，每个 Tool 都是带 Schema 的 API：</p>
+    <div class="code-block">
+<span class="cm">// CC 工具定义（Tool.ts）</span>
+<span class="kw">export class</span> <span class="fn">ReadTool</span> <span class="kw">implements</span> Tool {
+  name = <span class="str">'Read'</span>;
+  description = <span class="str">'读取文件内容'</span>;
+  schema = z.object({
+    file_path: z.string().describe(<span class="str">'文件路径'</span>),
+    offset: z.number().optional(),
+    limit: z.number().optional(),
+  });
+
+  <span class="kw">async</span> <span class="fn">execute</span>(input, context) {
+    <span class="kw">return</span> readFile(input.file_path, input.offset, input.limit);
+  }
+}
+    </div>
+    <p>关键设计原则：</p>
+    <ul style="list-style:disc; padding-left:1.5rem; color:var(--text2); margin:0.8rem 0;">
+      <li><strong>流式执行</strong>：工具在模型生成过程中就开始执行（StreamingToolExecutor）</li>
+      <li><strong>Schema 驱动</strong>：每个工具都有 Zod schema，LLM 自动生成参数</li>
+      <li><strong>权限分级</strong>：工具可标记为"高风险"，需要用户确认</li>
+      <li><strong>可组合</strong>：Agent 工具 = 子 Agent / Skill 调用 = 更复杂的 Tool</li>
+    </ul>
+    <p><strong>🎯 启发</strong>：把你的程序功能也设计成"LLM 友好的工具 API"——<strong>Schema 驱动 + 副效应透明 + 可组合</strong>。未来每个函数都是一个"工具"，可以被 AI Agent 发现和调用。</p>
+  </div>
+
+  <!-- TAB 4 -->
+  <div class="tab-content" id="tab4">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">④ 记忆即文件 — "持久化不是数据库，而是文件系统"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>CC 没有用传统的数据库来存储记忆，而是用 <strong>Markdown 文件</strong> 作为持久化载体：</p>
+    <div class="code-block">
+<span class="cm">// 记忆文件存放在:</span>
+~/.claude/memories/
+  ├── user/
+  │   └── role.md         <span class="cm">// "用户是数据科学家，关注日志系统"</span>
+  ├── feedback/
+  │   └── concise.md      <span class="cm">// "用户要求简洁回复，不要尾部摘要"</span>
+  └── project/
+      └── freeze.md       <span class="cm">// "2026-03-05 起合并冻结"</span>
+
+<span class="cm">// 核心理念：只记住无法从代码中推断出来的东西</span>
+    </div>
+    <p><strong>四种记忆类型</strong>：</p>
+    <table class="cmp-table">
+      <tr><th>类型</th><th>内容</th><th>生命周期</th></tr>
+      <tr><td>User（用户画像）</td><td>角色、目标、技能水平</td><td>永久</td></tr>
+      <tr><td>Feedback（行为反馈）</td><td>纠正／肯定的交互记录</td><td>永久</td></tr>
+      <tr><td>Project（项目动态）</td><td>项目上下文、截止日期</td><td>项目周期</td></tr>
+      <tr><td>Session（会话记忆）</td><td>本会话临时信息</td><td>会话结束即清理</td></tr>
+    </table>
+    <p><strong>🎯 启发</strong>：不要把所有状态都丢进数据库。<strong>文件系统就是最好的持久化层</strong>——可读、可写、可 diff、可版本控制、可被 AI 直接理解。这是一种"面向 LLM 的存储思维"。</p>
+  </div>
+
+  <!-- TAB 5 -->
+  <div class="tab-content" id="tab5">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">⑤ 上下文压缩 — "不截断，而是蒸馏"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>长上下文窗口是 Agent 的命脉。CC 没有简单地截断历史，而是用了四层智能压缩策略：</p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:1rem; margin:1.5rem 0;">
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--accent); font-size:0.9rem;">✂️ Snip 压缩</div>
+        <div style="font-size:0.85rem; color:var(--text2);">智能删除旧消息中的冗余 token，每轮自动执行</div>
+      </div>
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--green); font-size:0.9rem;">📐 Micro 压缩</div>
+        <div style="font-size:0.85rem; color:var(--text2);">修改已缓存消息的内容以更紧凑表达</div>
+      </div>
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--blue); font-size:0.9rem;">📂 上下文折叠</div>
+        <div style="font-size:0.85rem; color:var(--text2);">分阶段摘要历史消息，接近限制时触发</div>
+      </div>
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--orange); font-size:0.9rem;">🔄 Auto Compact</div>
+        <div style="font-size:0.85rem; color:var(--text2);">通过 Claude 自身生成完整摘要，严重不足时使用</div>
+      </div>
+    </div>
+    <p><strong>🎯 启发</strong>：处理大数据时，<strong>"蒸馏"比"截断"更有价值</strong>。在信息过载的系统里，设计多级降采样策略，让最关键的信息保留下来。这个原则适用于日志系统、数据处理管道、甚至代码架构设计。</p>
+  </div>
+
+  <!-- TAB 6 -->
+  <div class="tab-content" id="tab6">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">⑥ 多 Agent 协作 — "专业分工 > 全能单兵"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>CC 内置了 <strong>6 种专业 Agent</strong>，每种有各自的工具池和模型策略：</p>
+    <table class="cmp-table">
+      <tr><th>Agent 类型</th><th>工具池</th><th>模型</th><th>场景</th></tr>
+      <tr><td>🧑‍💼 general-purpose</td><td>全部工具</td><td>继承父代理</td><td>万能型任务</td></tr>
+      <tr><td>🔍 Explore</td><td>只读（Glob/Grep/Read/Bash）</td><td>Haiku（快速）</td><td>搜索、调研</td></tr>
+      <tr><td>📋 Plan</td><td>只读</td><td>继承（强推理）</td><td>架构设计</td></tr>
+      <tr><td>🛠 Implement</td><td>读写工具</td><td>继承</td><td>代码实现</td></tr>
+      <tr><td>🔬 Review</td><td>只读</td><td>继承</td><td>代码审查</td></tr>
+      <tr><td>🐛 Debug</td><td>全部</td><td>继承</td><td>调试</td></tr>
+    </table>
+    <div class="code-block">
+<span class="cm">// 多 Agent 并行调用示例</span>
+<span class="kw">const</span> results = <span class="kw">await</span> Promise.all([
+  Agent({ description: <span class="str">"搜索模块A"</span>, prompt: <span class="str">"分析 src/moduleA/..."</span>, subagent_type: <span class="str">"Explore"</span> }),
+  Agent({ description: <span class="str">"搜索模块B"</span>, prompt: <span class="str">"分析 src/moduleB/..."</span>, subagent_type: <span class="str">"Explore"</span> }),
+  Agent({ description: <span class="str">"搜索模块C"</span>, prompt: <span class="str">"分析 src/moduleC/..."</span>, subagent_type: <span class="str">"Explore"</span> }),
+]);
+    </div>
+    <p><strong>🎯 启发</strong>：不要试图让一个"万能"的函数/服务做所有事。<strong>专业化分工 + 并行协作</strong> 是扩展复杂系统的唯一路径。在微服务、数据处理、CI/CD 管道中都应该应用这个原则。</p>
+  </div>
+
+  <!-- TAB 7 -->
+  <div class="tab-content" id="tab7">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">⑦ 插件化思维 — "每个工作流都是一个 Markdown 文件"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>CC 的 <strong>Skills 系统</strong> 可能是最优雅的设计之一——用 <strong>Markdown 文件定义能力插件</strong>：</p>
+    <div class="code-block">
+<span class="cm">// ~/.claude/skills/my-skill/SKILL.md</span>
+---
+name: <span class="str">my-review</span>
+description: <span class="str">自定义代码审查工作流</span>
+trigger: <span class="str">*.ts</span>    <span class="cm">// 只有编辑 .ts 文件时才激活</span>
+tools: [Read, Grep, Glob]  <span class="cm">// 限制只能用这些工具</span>
+model: claude-sonnet-4
+---
+
+请在代码审查时重点关注：
+1. 类型安全性
+2. 错误处理路径
+3. 性能敏感循环
+4. 与现有架构的一致性
+
+不关注：格式化、命名风格（这些由 linter 处理）
+    </div>
+    <p><strong>Skills 系统的设计智慧</strong>：</p>
+    <ul style="list-style:disc; padding-left:1.5rem; color:var(--text2); margin:0.8rem 0;">
+      <li><strong>6 层来源</strong>：内置 → 策略 → 用户 → 项目 → 全局 → 远程（MCP）</li>
+      <li><strong>条件激活</strong>：只在特定文件类型或路径下激活</li>
+      <li><strong>权限隔离</strong>：Skill 能看到的工具被严格限制</li>
+      <li><strong>热加载</strong>：修改文件即时生效，无需重启</li>
+    </ul>
+    <p><strong>🎯 启发</strong>：把功能扩展点设计成<strong>文件驱动的插件系统</strong>——非开发者也能通过写 Markdown/YAML 来扩展系统能力。这是一种"面向 LLM 的插件架构"，也是未来软件扩展性的方向。</p>
+  </div>
+
+  <!-- TAB 8 -->
+  <div class="tab-content" id="tab8">
+    <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">⑧ 安全内建于流程 — "信任但验证，自动化但可控"</h3>
+    <div class="glow-line" style="margin-left:0;"></div>
+    <p>CC 的安全体系不是事后添加的，而是从 Agent 循环的<strong>最底层嵌入</strong>：</p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:1rem; margin:1.5rem 0;">
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--accent); font-size:0.9rem;">🔑 工具级权限</div>
+        <div style="font-size:0.85rem; color:var(--text2);">每个工具可标记 allow/deny/prompt，高风险操作需用户确认</div>
+      </div>
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--green); font-size:0.9rem;">🔒 对话内沙箱</div>
+        <div style="font-size:0.85rem; color:var(--text2);">子 Agent 继承或受限的权限范围，无法越权</div>
+      </div>
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--blue); font-size:0.9rem;">📝 操作审计</div>
+        <div style="font-size:0.85rem; color:var(--text2);">所有工具调用记录在对话历史中，可回放审查</div>
+      </div>
+      <div style="background:var(--surface); padding:1rem; border-radius:12px; border:1px solid var(--border);">
+        <div style="font-weight:700; color:var(--orange); font-size:0.9rem;">🛑 熔断机制</div>
+        <div style="font-size:0.85rem; color:var(--text2);">高风险操作自动暂停，等候用户审批</div>
+      </div>
+    </div>
+    <p><strong>🎯 启发</strong>：AI 时代的安全不是"加一个防火墙"就够的。它必须成为<strong>程序执行流的一部分</strong>——每个函数调用都应该是"可审计、可拒绝、可暂停"的。设计任何系统时，把安全埋入每一个决策点。</p>
+  </div>
+</section>
+
+<!-- ===== SECTION 3: COMPARISON - Traditional vs Agent Era ===== -->
+<section>
+  <h2 class="section-title">🔄 传统编程 vs Agent 编程</h2>
+  <p class="section-sub">CC 代表了一种全新的编程范式转变</p>
+
+  <div class="flowchart-wrapper" style="padding:1.5rem;">
+    <table class="cmp-table">
+      <tr><th style="width:25%">维度</th><th style="width:37%">传统编程</th><th style="width:38%">Agent 编程（CC 启示）</th></tr>
+      <tr>
+        <td style="font-weight:600; color:var(--accent);">控制流</td>
+        <td>CPU 固定顺序执行指令</td>
+        <td>LLM 动态推理 → 选择工具 → 异步执行</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600; color:var(--green);">状态管理</td>
+        <td>变量 + 数据库</td>
+        <td>对话历史 + 记忆文件 + 状态机</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600; color:var(--blue);">错误处理</td>
+        <td>try/catch + 重试策略</td>
+        <td>智能压缩恢复 + 上下文折叠 + Auto Compact</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600; color:var(--orange);">扩展方式</td>
+        <td>导入依赖 + 插件接口</td>
+        <td>Skills（Markdown 文件）+ MCP + Tools</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600; color:var(--pink);">调试</td>
+        <td>断点 + 日志 + 单测</td>
+        <td>对话回放 + 子 Agent 隔离 + 工具调用审计</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600; color:var(--accent);">开发范式</td>
+        <td>写代码 → 编译 → 部署</td>
+        <td>写提示词 → 定义工具 → Agent 自动执行</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600; color:var(--green);">人机协作</td>
+        <td>开发者写全部代码</td>
+        <td>人类定方向 + AI 执行 + 人类审批关键操作</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ===== SECTION 4: TIMELINE - CC's Evolution ===== -->
+<section>
+  <h2 class="section-title">⏳ CC 架构演进启示录</h2>
+  <p class="section-sub">从 cc-haha 源码中看到的编程演进路径</p>
+  <div class="timeline">
+    <div class="tl-item">
+      <h4>第一阶段：CLI 工具思维 <span style="color:var(--text2); font-weight:400;">（入口 → 处理 → 退出）</span></h4>
+      <p>CC 的起点是一个终端 CLI 工具，用 Commander.js 解析命令。这表明 <strong>AI Agent 的入口可以只是一个简单的 CLI</strong>，而不是复杂的 GUI。</p>
+    </div>
+    <div class="tl-item">
+      <h4>第二阶段：交互式 REPL 思维 <span style="color:var(--text2); font-weight:400;">（对话即编程）</span></h4>
+      <p>加入 React/Ink 终端 UI，提供持续交互会话。编程从"写文件"变成了"对话式迭代"——<strong>代码不再是要写的，而是要通过对话逐步生成的</strong>。</p>
+    </div>
+    <div class="tl-item">
+      <h4>第三阶段：桌面端工作台 <span style="color:var(--text2); font-weight:400;">（多会话 + 多项目 + 可视 Diff）</span></h4>
+      <p>Electron 桌面端引入标签页、项目切换、Diff 视图。AI 编程工具从"终端里的助手"变成 <strong>完整的开发环境</strong>。</p>
+    </div>
+    <div class="tl-item">
+      <h4>第四阶段：Agent 生态 <span style="color:var(--text2); font-weight:400;">（多 Agent + Skills + 记忆 + MCP）</span></h4>
+      <p>CC 不再只是一个工具——它成了一个 <strong>AI 编程操作系统</strong>。Skill 是"应用程序"，Agent 是"进程"，记忆是"持久化存储"，MCP 是"网络协议"。</p>
+    </div>
+    <div class="tl-item">
+      <h4>第五阶段：全渠道接入 <span style="color:var(--text2); font-weight:400;">（桌面 + H5 + IM + 远程）</span></h4>
+      <p>CC 可以通过 Telegram、飞书、微信等 IM 工具访问。编程不再局限于 IDE——<strong>在聊天软件里就可以写代码、审查代码、管理项目</strong>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 5: INSPIRATION CARDS ===== -->
+<section>
+  <h2 class="section-title">🎯 总结：CC 带给编程的思维转变</h2>
+  <p class="section-sub">把 Claude Code 的架构智慧应用到你的日常编程中</p>
+  <div class="insights-grid">
+    <div class="card c-purple" onclick="this.classList.toggle('active')">
+      <div class="card-icon">🔮</div>
+      <h3>从"写代码"到"写 Agent"</h3>
+      <p>未来程序员的产出不再只是代码文件，而是定义 Agent 行为、工具接口和验证标准的"元编程"。</p>
+      <span class="inspire">思维转变</span>
+    </div>
+    <div class="card c-green" onclick="this.classList.toggle('active')">
+      <div class="card-icon">🔄</div>
+      <h3>从"函数调用"到"工具选择"</h3>
+      <p>不是硬编码调用链，而是让 AI 在运行时动态选择最佳工具组合。设计时关注"给 AI 什么工具"比"怎么写调用逻辑"更重要。</p>
+      <span class="inspire">架构思维</span>
+    </div>
+    <div class="card c-blue" onclick="this.classList.toggle('active')">
+      <div class="card-icon">📄</div>
+      <h3>从"API 文档"到"Schema 定义"</h3>
+      <p>每个函数/接口都应该有完整的 Schema（Zod/JSON Schema），让 AI 能自动发现和调用。文档不再是给人看的，是给 AI 解析的。</p>
+      <span class="inspire">接口设计</span>
+    </div>
+    <div class="card c-orange" onclick="this.classList.toggle('active')">
+      <div class="card-icon">💾</div>
+      <h3>从"数据库"到"文件即记忆"</h3>
+      <p>Markdown/YAML 文件是最好的 AI 存储格式——可读、可版本控制、可被 AI 直接理解。重新审视你的数据持久化策略。</p>
+      <span class="inspire">存储思维</span>
+    </div>
+    <div class="card c-pink" onclick="this.classList.toggle('active')">
+      <div class="card-icon">🧩</div>
+      <h3>从"插件接口"到"文件即插件"</h3>
+      <p>用 Markdown 文件定义插件，非开发者也能扩展系统。扩展点越简单，生态越繁荣。</p>
+      <span class="inspire">扩展性</span>
+    </div>
+    <div class="card c-purple" onclick="this.classList.toggle('active')">
+      <div class="card-icon">🔐</div>
+      <h3>从"安全外挂"到"安全内建"</h3>
+      <p>每一个工具调用都应该是可审计、可拒绝的。安全不是一层墙，而是分布在每个决策点中的检查点。</p>
+      <span class="inspire">安全设计</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <p style="margin-bottom:0.3rem;">基于 <strong>cc-haha</strong> (Claude Code Haha) 源码研究 · <a href="https://github.com/NanmiCoder/cc-haha" style="color:var(--accent); text-decoration:none;">github.com/NanmiCoder/cc-haha</a></p>
+  <p style="font-size:0.8rem;">Anthropic Claude Code 泄露源码修复版 · 学习研究用途</p>
+  <p style="margin-top:1.5rem; opacity:0.5;">← 点击卡片可切换高亮 · 使用 Tab 切换讲解模块 →</p>
+</footer>
+
+<script>
+  // Tab switching
+  const tabs = document.querySelectorAll('.tab-btn');
+  const contents = document.querySelectorAll('.tab-content');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.classList.remove('active'));
+      contents.forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const el = document.querySelector(a.getAttribute('href'));
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Intersection observer for animation
+  const cards = document.querySelectorAll('.card');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+  cards.forEach(card => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    card.style.transition = 'all 0.6s ease';
+    observer.observe(card);
+  });
+</script>
+</body>
+</html>
